@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, LayoutAnimation, Platform, Pressable, ScrollView, Text, UIManager, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { PriorityDot } from "@/components/priority-dot";
 import { TaskCheck } from "@/components/task-check";
@@ -85,101 +86,103 @@ export default function TasksScreen() {
     });
   }, [blocks, filter]);
 
-  useEffect(() => {
-    let alive = true;
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
 
-    if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-      UIManager.setLayoutAnimationEnabledExperimental(true);
-    }
+      if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+        UIManager.setLayoutAnimationEnabledExperimental(true);
+      }
 
-    const load = async () => {
-      setLoading(true);
+      const load = async () => {
+        setLoading(true);
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userId = sessionData.session?.user.id;
-      if (alive) setUserId(userId ?? null);
+        const { data: sessionData } = await supabase.auth.getSession();
+        const userId = sessionData.session?.user.id;
+        if (alive) setUserId(userId ?? null);
 
-      if (!userId) {
-        if (alive) {
-          setBlocks([]);
-          setLoading(false);
+        if (!userId) {
+          if (alive) {
+            setBlocks([]);
+            setLoading(false);
+          }
+          return;
         }
-        return;
-      }
 
-      const [{ data: dayConfigs, error: dayConfigError }, { data: taskRows, error: tasksError }] = await Promise.all([
-        supabase.from("day_configs").select("id,name,wake_time,end_time,applies_to,is_default").eq("user_id", userId),
-        supabase
-          .from("tasks")
-          .select("id,block_id,title,priority,completed,date,order")
-          .eq("user_id", userId)
-          .eq("date", todayIsoDate())
-          .order("order", { ascending: true }),
-      ]);
+        const [{ data: dayConfigs, error: dayConfigError }, { data: taskRows, error: tasksError }] = await Promise.all([
+          supabase.from("day_configs").select("id,name,wake_time,end_time,applies_to,is_default").eq("user_id", userId),
+          supabase
+            .from("tasks")
+            .select("id,block_id,title,priority,completed,date,order")
+            .eq("user_id", userId)
+            .eq("date", todayIsoDate())
+            .order("order", { ascending: true }),
+        ]);
 
-      if (dayConfigError) console.error(dayConfigError.message);
-      if (tasksError) console.error(tasksError.message);
+        if (dayConfigError) console.error(dayConfigError.message);
+        if (tasksError) console.error(tasksError.message);
 
-      const selectedConfig = pickDayConfig(dayConfigs ?? [], getTodayCode());
+        const selectedConfig = pickDayConfig(dayConfigs ?? [], getTodayCode());
 
-      if (!selectedConfig) {
-        if (alive) {
-          setBlocks([]);
-          setLoading(false);
+        if (!selectedConfig) {
+          if (alive) {
+            setBlocks([]);
+            setLoading(false);
+          }
+          return;
         }
-        return;
-      }
 
-      const { data: blockRows, error: blocksError } = await supabase
-        .from("blocks")
-        .select("id,day_config_id,name,type,start_time,duration_minutes,color,is_fixed,is_active,repeat_rule,applies_to")
-        .eq("day_config_id", selectedConfig.id)
-        .eq("is_active", true)
-        .order("start_time", { ascending: true });
+        const { data: blockRows, error: blocksError } = await supabase
+          .from("blocks")
+          .select("id,day_config_id,name,type,start_time,duration_minutes,color,is_fixed,is_active,repeat_rule,applies_to")
+          .eq("day_config_id", selectedConfig.id)
+          .eq("is_active", true)
+          .order("start_time", { ascending: true });
 
-      if (blocksError) console.error(blocksError.message);
+        if (blocksError) console.error(blocksError.message);
 
-      const tasksByBlock = new Map<string, LiveTask[]>();
-      for (const taskRow of taskRows ?? []) {
-        const current = tasksByBlock.get(taskRow.block_id) ?? [];
-        current.push({
-          id: taskRow.id,
-          text: taskRow.title,
-          priority: normalizePriority(taskRow.priority),
-          done: taskRow.completed,
-        });
-        tasksByBlock.set(taskRow.block_id, current);
-      }
+        const tasksByBlock = new Map<string, LiveTask[]>();
+        for (const taskRow of taskRows ?? []) {
+          const current = tasksByBlock.get(taskRow.block_id) ?? [];
+          current.push({
+            id: taskRow.id,
+            text: taskRow.title,
+            priority: normalizePriority(taskRow.priority),
+            done: taskRow.completed,
+          });
+          tasksByBlock.set(taskRow.block_id, current);
+        }
 
-      const todayCode = getTodayCode();
-      const nextBlocks: LiveBlock[] = (blockRows ?? [])
-        .filter((blockRow) => shouldShowBlock(blockRow.repeat_rule, blockRow.applies_to, todayCode))
-        .map((blockRow) => ({
-          dbId: blockRow.id,
-          id: blockRow.id,
-          type: blockRow.type in TOKENS.blocks ? (blockRow.type as BlockType) : "otro",
-          name: blockRow.name,
-          start: blockRow.start_time,
-          end: addMinutes(blockRow.start_time, blockRow.duration_minutes),
-          tasks: tasksByBlock.get(blockRow.id) ?? [],
-          isFixed: Boolean(blockRow.is_fixed),
-          repeatRule: blockRow.repeat_rule,
-          appliesTo: blockRow.applies_to,
-        }));
+        const todayCode = getTodayCode();
+        const nextBlocks: LiveBlock[] = (blockRows ?? [])
+          .filter((blockRow) => shouldShowBlock(blockRow.repeat_rule, blockRow.applies_to, todayCode))
+          .map((blockRow) => ({
+            dbId: blockRow.id,
+            id: blockRow.id,
+            type: blockRow.type in TOKENS.blocks ? (blockRow.type as BlockType) : "otro",
+            name: blockRow.name,
+            start: blockRow.start_time,
+            end: addMinutes(blockRow.start_time, blockRow.duration_minutes),
+            tasks: tasksByBlock.get(blockRow.id) ?? [],
+            isFixed: Boolean(blockRow.is_fixed),
+            repeatRule: blockRow.repeat_rule,
+            appliesTo: blockRow.applies_to,
+          }));
 
-      if (!alive) return;
+        if (!alive) return;
 
-      setBlocks(nextBlocks);
-      setExpandedBlockIds(Object.fromEntries(nextBlocks.map((block) => [block.id, block.tasks.some((task) => !task.done)])));
-      setLoading(false);
-    };
+        setBlocks(nextBlocks);
+        setExpandedBlockIds(Object.fromEntries(nextBlocks.map((block) => [block.id, block.tasks.some((task) => !task.done)])));
+        setLoading(false);
+      };
 
-    void load();
+      void load();
 
-    return () => {
-      alive = false;
-    };
-  }, []);
+      return () => {
+        alive = false;
+      };
+    }, []),
+  );
 
   const emptyMessage = useMemo(() => {
     if (blocks.length === 0) {

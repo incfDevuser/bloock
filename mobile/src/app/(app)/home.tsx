@@ -550,9 +550,11 @@ export default function HomeScreen() {
           }}
           style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
           <Pressable className="relative self-stretch" style={{ height: (timelineMinutes / 60) * HOUR_PX + 12 }} onPress={handleTimelinePress}>
-            <View
-              className="absolute left-0 right-0 top-0"
-              style={{ height: (timelineMinutes / 60) * HOUR_PX + 12, zIndex: 3 }}>
+            <View pointerEvents="box-none" className="absolute inset-0" style={{ zIndex: 0 }}>
+              <View
+                className="absolute left-0 right-0 top-0"
+                pointerEvents="none"
+                style={{ height: (timelineMinutes / 60) * HOUR_PX + 12, zIndex: 3 }}>
               {Array.from({ length: Math.max(1, Math.floor(dayEndMin / 60) - Math.ceil(dayStartMin / 60) + 1) }).map((_, index) => {
                 const hour = Math.ceil(dayStartMin / 60) + index;
                 const y = ((hour * 60 - dayStartMin) / 60) * HOUR_PX + 8;
@@ -569,10 +571,10 @@ export default function HomeScreen() {
                   </View>
                 );
               })}
-            </View>
+              </View>
 
-            <View className="absolute top-0" style={{ left: GUTTER_PX + 6, right: 4, height: (timelineMinutes / 60) * HOUR_PX + 12, zIndex: 1 }}>
-              {freeSlots.map((slot) => {
+              <View className="absolute top-0" style={{ left: GUTTER_PX + 6, right: 4, height: (timelineMinutes / 60) * HOUR_PX + 12, zIndex: 2 }}>
+                {freeSlots.map((slot) => {
                 const height = ((slot.endMin - slot.startMin) / 60) * HOUR_PX;
                 if (height < 18) return null;
 
@@ -601,28 +603,29 @@ export default function HomeScreen() {
                 );
               })}
 
-              {blocks.map((block) => (
-                <BlockCard key={block.id} block={block} onOpen={openBlock} timelineStartMin={dayStartMin} />
-              ))}
-            </View>
+                {blocks.map((block) => (
+                  <BlockCard key={block.id} block={block} onOpen={openBlock} timelineStartMin={dayStartMin} />
+                ))}
+              </View>
 
-            {NOW_MIN >= dayStartMin && NOW_MIN < dayEndMin ? (
-              <View
-                className="absolute left-0 right-0 flex-row items-center"
-                pointerEvents="none"
-                style={{ top: ((NOW_MIN - dayStartMin) / 60) * HOUR_PX + 8, zIndex: 4 }}>
-                <Text className="w-[52px] pr-2 text-right font-mono text-[10px] font-semibold" style={{ color: "#F55252" }}>
-                  {String(Math.floor(NOW_MIN / 60)).padStart(2, "0")}:{String(NOW_MIN % 60).padStart(2, "0")}
-                </Text>
-                <View className="flex-1 flex-row items-center">
-                  <View className="h-px flex-1 bg-red-500" />
-                  <View
-                    className="h-2.5 w-2.5 rounded-full bg-red-500"
-                    style={{ shadowColor: "#F55252", shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } }}
-                  />
-                </View>
+              {NOW_MIN >= dayStartMin && NOW_MIN < dayEndMin ? (
+                <View
+                  className="absolute left-0 right-0 flex-row items-center"
+                  pointerEvents="none"
+                  style={{ top: ((NOW_MIN - dayStartMin) / 60) * HOUR_PX + 8, zIndex: 4 }}>
+                  <Text className="w-[52px] pr-2 text-right font-mono text-[10px] font-semibold" style={{ color: "#F55252" }}>
+                    {String(Math.floor(NOW_MIN / 60)).padStart(2, "0")}:{String(NOW_MIN % 60).padStart(2, "0")}
+                  </Text>
+                  <View className="flex-1 flex-row items-center">
+                    <View className="h-px flex-1 bg-red-500" />
+                    <View
+                      className="h-2.5 w-2.5 rounded-full bg-red-500"
+                      style={{ shadowColor: "#F55252", shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } }}
+                    />
+                  </View>
                 </View>
               ) : null}
+            </View>
           </Pressable>
 
         </ScrollView>

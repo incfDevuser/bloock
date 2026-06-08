@@ -27,6 +27,19 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "21fe52db-7d1f-4b8b-bd67-670544cd7996"
+      }
+    },
+    "owner": "incfdevuser",
+    "ios": {
+      "bundleIdentifier": "com.incfdevuser.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     }
   }
 }
