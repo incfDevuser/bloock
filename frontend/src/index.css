@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@layer base {
+  html {
+    font-size: 80%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-[#f7f7f4] text-neutral-950 antialiased;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  ::selection {
+    background: #d4ef4b;
+    color: #0b0b0b;
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
+  }
+}
