@@ -33,23 +33,28 @@ export default function WelcomeScreen() {
           </View>
 
           <Text className="max-w-[280px] font-display text-[54px] leading-[0.93] tracking-[-0.06em] text-ink">
-            Hola. Soy Block.
+            Bloock.
           </Text>
 
           <Text className="mt-5 max-w-[280px] font-body text-[17px] leading-7 text-black/60">
-            Te ayudo a armar tu día en bloques. Cuentame cómo es y yo me encargo.
+            Arma tu día en bloques o vuelve a entrar con tu cuenta.
           </Text>
         </View>
 
         <View className="pb-2">
-          <Pressable
-            onPress={() => router.push("/onboarding/name")}
-            className="items-center rounded-full bg-lime-300 px-6 py-4 shadow-sm shadow-lime-300/30 active:scale-[0.99]"
-          >
-            <Text className="font-bodyMedium text-[16px] text-ink">
-              Armemos tu día
-            </Text>
-          </Pressable>
+          <View className="gap-3">
+            <Pressable
+              onPress={() => router.push("/onboarding/name")}
+              className="items-center rounded-full bg-lime-300 px-6 py-4 shadow-sm shadow-lime-300/30 active:scale-[0.99]">
+              <Text className="font-bodyMedium text-[16px] text-ink">Armemos tu día</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => router.push("/login")}
+              className="items-center rounded-full border border-black/10 bg-white/75 px-6 py-4 active:scale-[0.99]">
+              <Text className="font-bodyMedium text-[16px] text-ink">Iniciar sesión</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     </View>
