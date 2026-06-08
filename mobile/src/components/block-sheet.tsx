@@ -19,12 +19,13 @@ import { TOKENS, fmtDuration, type DemoBlock, type DemoTask } from "@/lib/block-
 type BlockSheetProps = {
   block: DemoBlock | null;
   onClose: () => void;
+  onUpdateBlock: (blockId: string, patch: { name: string; type: keyof typeof TOKENS.blocks; start: string; end: string }) => Promise<boolean | void> | boolean | void;
   onToggleTask: (blockId: string, taskId: string) => Promise<void> | void;
   onAddTask: (blockId: string, text: string) => Promise<void> | void;
   onDeleteBlock: (blockId: string) => void;
 };
 
-export function BlockSheet({ block, onClose, onToggleTask, onAddTask, onDeleteBlock }: BlockSheetProps) {
+export function BlockSheet({ block, onClose, onUpdateBlock, onToggleTask, onAddTask, onDeleteBlock }: BlockSheetProps) {
   const [sheetProgress] = useState(() => new Animated.Value(0));
   const insets = useSafeAreaInsets();
 
@@ -73,9 +74,11 @@ export function BlockSheet({ block, onClose, onToggleTask, onAddTask, onDeleteBl
               opacity: sheetProgress,
             }}>
             <BlockSheetBody
+              key={block.id}
               block={block}
               meta={meta}
               onClose={close}
+              onUpdateBlock={onUpdateBlock}
               onToggleTask={onToggleTask}
               onAddTask={onAddTask}
               onDeleteBlock={onDeleteBlock}
@@ -91,6 +94,7 @@ function BlockSheetBody({
   block,
   meta,
   onClose,
+  onUpdateBlock,
   onToggleTask,
   onAddTask,
   onDeleteBlock,
@@ -98,12 +102,18 @@ function BlockSheetBody({
   block: DemoBlock;
   meta: (typeof TOKENS.blocks)[keyof typeof TOKENS.blocks];
   onClose: () => void;
+  onUpdateBlock: (blockId: string, patch: { name: string; type: keyof typeof TOKENS.blocks; start: string; end: string }) => Promise<boolean | void> | boolean | void;
   onToggleTask: (blockId: string, taskId: string) => Promise<void> | void;
   onAddTask: (blockId: string, text: string) => Promise<void> | void;
   onDeleteBlock: (blockId: string) => void;
 }) {
   const [draft, setDraft] = useState("");
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(block.name);
+  const [editType, setEditType] = useState<keyof typeof TOKENS.blocks>(block.type);
+  const [editStart, setEditStart] = useState(block.start);
+  const [editDuration, setEditDuration] = useState(fmtDuration(block.start, block.end));
   const completion = useMemo(() => {
     if (!block.tasks.length) return 0;
     return block.tasks.filter((task) => task.done).length / block.tasks.length;
@@ -116,6 +126,20 @@ function BlockSheetBody({
     }
     setDraft("");
     setAdding(false);
+  };
+
+  const saveBlock = async () => {
+    const name = editName.trim();
+    if (!name) return;
+
+    const start = normalizeTime(editStart);
+    const durationMinutes = parseDurationToMinutes(editDuration);
+    if (!start || !durationMinutes || durationMinutes <= 0) return;
+
+    const end = addMinutes(start, durationMinutes);
+    const result = await Promise.resolve(onUpdateBlock(block.id, { name, type: editType, start, end }));
+    if (result === false) return;
+    setEditing(false);
   };
 
   return (
@@ -131,15 +155,82 @@ function BlockSheetBody({
         </View>
         <View className="flex-row items-start justify-between gap-3">
           <View className="flex-1 pr-2">
-            <Text className="font-display text-[26px] leading-[1.05] tracking-[-0.04em] text-ink">{block.name}</Text>
-            <Text className="mt-2 font-mono text-[12px] text-black/45">
-              {block.start}–{block.end} · {fmtDuration(block.start, block.end)}
-            </Text>
+            {editing ? (
+              <View className="gap-3">
+                <TextInput
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Nombre del bloque"
+                  placeholderTextColor="#8a8a8a"
+                  className="rounded-2xl border border-black/10 px-4 py-3 font-body text-[16px] text-ink"
+                />
+                <View className="flex-row flex-wrap gap-2">
+                  {(Object.keys(TOKENS.blocks) as (keyof typeof TOKENS.blocks)[]).map((type) => {
+                    const active = editType === type;
+                    return (
+                      <Pressable
+                        key={type}
+                        onPress={() => setEditType(type)}
+                        className={`rounded-full border px-3 py-2 ${active ? "bg-black" : "bg-white"}`}
+                        style={{ borderColor: active ? "#0F0F0F" : "rgba(15,15,15,0.12)" }}>
+                        <Text className={`font-bodyMedium text-[13px] ${active ? "text-white" : "text-black/65"}`}>
+                          {TOKENS.blocks[type].label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <View className="flex-row gap-3">
+                  <View className="flex-1 gap-2">
+                    <Text className="font-mono text-[11px] uppercase tracking-[0.2em] text-black/40">Inicio</Text>
+                    <TextInput
+                      value={editStart}
+                      onChangeText={setEditStart}
+                      placeholder="08:00"
+                      placeholderTextColor="#8a8a8a"
+                      keyboardType="numbers-and-punctuation"
+                      className="rounded-2xl border border-black/10 px-4 py-3 font-mono text-[15px] text-ink"
+                    />
+                  </View>
+                  <View className="flex-1 gap-2">
+                    <Text className="font-mono text-[11px] uppercase tracking-[0.2em] text-black/40">Duración</Text>
+                    <TextInput
+                      value={editDuration}
+                      onChangeText={setEditDuration}
+                      placeholder="1h"
+                      placeholderTextColor="#8a8a8a"
+                      keyboardType="numbers-and-punctuation"
+                      className="rounded-2xl border border-black/10 px-4 py-3 font-mono text-[15px] text-ink"
+                    />
+                  </View>
+                </View>
+                <View className="flex-row gap-2">
+                  <Pressable onPress={() => setEditing(false)} className="rounded-full bg-black/[0.05] px-4 py-2">
+                    <Text className="font-bodyMedium text-[13px] text-black/55">Cancelar</Text>
+                  </Pressable>
+                  <Pressable onPress={saveBlock} className="rounded-full bg-lime-300 px-4 py-2">
+                    <Text className="font-bodyMedium text-[13px] text-ink">Guardar</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <>
+                <Text className="font-display text-[26px] leading-[1.05] tracking-[-0.04em] text-ink">{block.name}</Text>
+                <Text className="mt-2 font-mono text-[12px] text-black/45">
+                  {block.start}–{block.end} · {fmtDuration(block.start, block.end)}
+                </Text>
+              </>
+            )}
           </View>
 
-          <Pressable onPress={onClose} className="rounded-full bg-black/[0.05] px-3 py-2 active:opacity-80">
+          <View className="gap-2">
+            <Pressable onPress={() => setEditing((current) => !current)} className="rounded-full bg-black/[0.05] px-3 py-2 active:opacity-80">
+              <Text className="font-body text-[13px] text-black/45">{editing ? "Ver" : "Editar"}</Text>
+            </Pressable>
+            <Pressable onPress={onClose} className="rounded-full bg-black/[0.05] px-3 py-2 active:opacity-80">
               <Text className="font-body text-[13px] text-black/45">Cerrar</Text>
-          </Pressable>
+            </Pressable>
+          </View>
         </View>
         {block.tasks.length ? (
           <Text className="mt-2 font-body text-[13px] text-black/45">
@@ -211,6 +302,40 @@ function BlockSheetBody({
       </ScrollView>
     </>
   );
+}
+
+function normalizeTime(value: string) {
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function parseDurationToMinutes(value: string) {
+  const trimmed = value.trim().toLowerCase();
+  const hoursMatch = trimmed.match(/^(\d+)\s*h(?:\s*(\d+)\s*min)?$/);
+  if (hoursMatch) {
+    return Number(hoursMatch[1]) * 60 + Number(hoursMatch[2] ?? 0);
+  }
+
+  const minutesMatch = trimmed.match(/^(\d+)\s*min$/);
+  if (minutesMatch) {
+    return Number(minutesMatch[1]);
+  }
+
+  const raw = Number(trimmed);
+  return Number.isFinite(raw) ? raw : null;
+}
+
+function addMinutes(start: string, minutes: number) {
+  const [hours, mins] = start.split(":").map(Number);
+  const total = hours * 60 + mins + minutes;
+  const normalized = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
+  return `${String(Math.floor(normalized / 60)).padStart(2, "0")}:${String(normalized % 60).padStart(2, "0")}`;
 }
 
 function TaskRow({ task, onToggle }: { task: DemoTask; onToggle: () => void }) {
