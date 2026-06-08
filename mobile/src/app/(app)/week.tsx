@@ -217,6 +217,46 @@ export default function WeekScreen() {
     );
   };
 
+  const updateBlock = async (
+    blockId: string,
+    patch: { name: string; type: keyof typeof TOKENS.blocks; start: string; end: string },
+  ) => {
+    const duration = timeToMin(patch.end) - timeToMin(patch.start);
+    const color = TOKENS.blocks[patch.type].bg;
+
+    const { error } = await supabase
+      .from("blocks")
+      .update({
+        name: patch.name,
+        type: patch.type,
+        start_time: patch.start,
+        duration_minutes: duration,
+        color,
+      })
+      .eq("id", blockId);
+
+    if (error) {
+      console.error(error.message);
+      return false;
+    }
+
+    setBlocks((current) =>
+      current.map((block) =>
+        block.id === blockId
+          ? {
+              ...block,
+              name: patch.name,
+              type: patch.type,
+              start: patch.start,
+              end: patch.end,
+            }
+          : block,
+        ),
+    );
+
+    return true;
+  };
+
   const deleteBlock = async (blockId: string) => {
     setSelectedBlock(null);
     setBlocks((current) => current.filter((block) => block.id !== blockId));
@@ -344,7 +384,14 @@ export default function WeekScreen() {
         </ScrollView>
       </View>
 
-      <BlockSheet block={selectedBlock} onClose={() => setSelectedBlock(null)} onToggleTask={toggleTask} onAddTask={addTask} onDeleteBlock={deleteBlock} />
+      <BlockSheet
+        block={selectedBlock}
+        onClose={() => setSelectedBlock(null)}
+        onUpdateBlock={updateBlock}
+        onToggleTask={toggleTask}
+        onAddTask={addTask}
+        onDeleteBlock={deleteBlock}
+      />
     </SafeAreaView>
   );
 }
