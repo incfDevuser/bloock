@@ -1,0 +1,6 @@
+# Claude skills
+.agents/skills/
+.claude/skills/
+
+# Database schema dump
+Tablas.sql
