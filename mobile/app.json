@@ -12,7 +12,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/Logo.png",
         "backgroundColor": "#FFFFFF"
-      }
+      },
+      "package": "com.incfdevuser.mobile"
     },
     "web": {
       "web": {
@@ -27,7 +28,11 @@
           "backgroundColor": "#208AEF",
           "android": {}
         }
-      ]
+      ],
+      "expo-font",
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
