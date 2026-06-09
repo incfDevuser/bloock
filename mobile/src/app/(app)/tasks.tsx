@@ -1,12 +1,26 @@
+import { useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, LayoutAnimation, Platform, Pressable, ScrollView, Text, UIManager, View } from "react-native";
+import {
+  ActivityIndicator,
+  LayoutAnimation,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  UIManager,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "@react-navigation/native";
 
 import { PriorityDot } from "@/components/priority-dot";
 import { TaskCheck } from "@/components/task-check";
 import { TaskCreateModal } from "@/components/task-create-modal";
-import { TOKENS, blockState, fmtDuration, type TaskPriority } from "@/lib/block-demo";
+import {
+  TOKENS,
+  blockState,
+  fmtDuration,
+  type TaskPriority,
+} from "@/lib/block-demo";
 import { createTask } from "@/lib/task-service";
 import { supabase } from "../../../utils/supabase";
 
@@ -64,12 +78,24 @@ export default function TasksScreen() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("todas");
-  const [expandedBlockIds, setExpandedBlockIds] = useState<Record<string, boolean>>({});
-  const [taskDraft, setTaskDraft] = useState<{ blockId: string; blockName: string } | null>(null);
+  const [expandedBlockIds, setExpandedBlockIds] = useState<
+    Record<string, boolean>
+  >({});
+  const [taskDraft, setTaskDraft] = useState<{
+    blockId: string;
+    blockName: string;
+  } | null>(null);
 
-  const totalTasks = useMemo(() => blocks.reduce((sum, block) => sum + block.tasks.length, 0), [blocks]);
+  const totalTasks = useMemo(
+    () => blocks.reduce((sum, block) => sum + block.tasks.length, 0),
+    [blocks],
+  );
   const doneTasks = useMemo(
-    () => blocks.reduce((sum, block) => sum + block.tasks.filter((task) => task.done).length, 0),
+    () =>
+      blocks.reduce(
+        (sum, block) => sum + block.tasks.filter((task) => task.done).length,
+        0,
+      ),
     [blocks],
   );
 
@@ -90,7 +116,10 @@ export default function TasksScreen() {
     useCallback(() => {
       let alive = true;
 
-      if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+      if (
+        Platform.OS === "android" &&
+        UIManager.setLayoutAnimationEnabledExperimental
+      ) {
         UIManager.setLayoutAnimationEnabledExperimental(true);
       }
 
@@ -109,8 +138,14 @@ export default function TasksScreen() {
           return;
         }
 
-        const [{ data: dayConfigs, error: dayConfigError }, { data: taskRows, error: tasksError }] = await Promise.all([
-          supabase.from("day_configs").select("id,name,wake_time,end_time,applies_to,is_default").eq("user_id", userId),
+        const [
+          { data: dayConfigs, error: dayConfigError },
+          { data: taskRows, error: tasksError },
+        ] = await Promise.all([
+          supabase
+            .from("day_configs")
+            .select("id,name,wake_time,end_time,applies_to,is_default")
+            .eq("user_id", userId),
           supabase
             .from("tasks")
             .select("id,block_id,title,priority,completed,date,order")
@@ -134,7 +169,9 @@ export default function TasksScreen() {
 
         const { data: blockRows, error: blocksError } = await supabase
           .from("blocks")
-          .select("id,day_config_id,name,type,start_time,duration_minutes,color,is_fixed,is_active,repeat_rule,applies_to")
+          .select(
+            "id,day_config_id,name,type,start_time,duration_minutes,color,is_fixed,is_active,repeat_rule,applies_to",
+          )
           .eq("day_config_id", selectedConfig.id)
           .eq("is_active", true)
           .order("start_time", { ascending: true });
@@ -155,11 +192,20 @@ export default function TasksScreen() {
 
         const todayCode = getTodayCode();
         const nextBlocks: LiveBlock[] = (blockRows ?? [])
-          .filter((blockRow) => shouldShowBlock(blockRow.repeat_rule, blockRow.applies_to, todayCode))
+          .filter((blockRow) =>
+            shouldShowBlock(
+              blockRow.repeat_rule,
+              blockRow.applies_to,
+              todayCode,
+            ),
+          )
           .map((blockRow) => ({
             dbId: blockRow.id,
             id: blockRow.id,
-            type: blockRow.type in TOKENS.blocks ? (blockRow.type as BlockType) : "otro",
+            type:
+              blockRow.type in TOKENS.blocks
+                ? (blockRow.type as BlockType)
+                : "otro",
             name: blockRow.name,
             start: blockRow.start_time,
             end: addMinutes(blockRow.start_time, blockRow.duration_minutes),
@@ -172,7 +218,14 @@ export default function TasksScreen() {
         if (!alive) return;
 
         setBlocks(nextBlocks);
-        setExpandedBlockIds(Object.fromEntries(nextBlocks.map((block) => [block.id, block.tasks.some((task) => !task.done)])));
+        setExpandedBlockIds(
+          Object.fromEntries(
+            nextBlocks.map((block) => [
+              block.id,
+              block.tasks.some((task) => !task.done),
+            ]),
+          ),
+        );
         setLoading(false);
       };
 
@@ -193,8 +246,14 @@ export default function TasksScreen() {
     }
 
     return {
-      title: filter === "pendientes" ? "Todo listo por aquí 👌" : "No hay tareas para mostrar.",
-      body: filter === "pendientes" ? "Ya cerraste todo lo de hoy." : "Probá con otro filtro.",
+      title:
+        filter === "pendientes"
+          ? "Todo listo por aquí 👌"
+          : "No hay tareas para mostrar.",
+      body:
+        filter === "pendientes"
+          ? "Ya cerraste todo lo de hoy."
+          : "Probá con otro filtro.",
     };
   }, [blocks.length, filter]);
 
@@ -230,7 +289,13 @@ export default function TasksScreen() {
     setTaskDraft({ blockId, blockName });
   };
 
-  const createTaskForBlock = async ({ title, priority }: { title: string; priority: TaskPriority }) => {
+  const createTaskForBlock = async ({
+    title,
+    priority,
+  }: {
+    title: string;
+    priority: TaskPriority;
+  }) => {
     if (!taskDraft || !userId) return;
 
     const block = blocks.find((item) => item.id === taskDraft.blockId);
@@ -240,12 +305,18 @@ export default function TasksScreen() {
       userId,
       blockId: taskDraft.blockId,
       title,
-      priority: priority === "low" ? "low" : priority === "high" ? "high" : "medium",
+      priority:
+        priority === "low" ? "low" : priority === "high" ? "high" : "medium",
       date: todayIsoDate(),
       order: block.tasks.length,
     });
 
-    const normalizedPriority = row.priority === "high" ? "high" : row.priority === "medium" ? "med" : "low";
+    const normalizedPriority =
+      row.priority === "high"
+        ? "high"
+        : row.priority === "medium"
+          ? "med"
+          : "low";
 
     setBlocks((current) =>
       current.map((item) =>
@@ -276,17 +347,25 @@ export default function TasksScreen() {
       ) : null}
 
       <View style={{ paddingTop: 8, paddingHorizontal: 16, paddingBottom: 6 }}>
-        <Text className="font-mono text-[11px] uppercase tracking-[0.28em] text-black/45">{todayLabel}</Text>
-        <Text numberOfLines={1} className="mt-4 font-display text-[34px] leading-[0.95] tracking-[-0.06em] text-ink">
+        <Text className="font-mono text-[11px] uppercase tracking-[0.28em] text-black/45">
+          {todayLabel}
+        </Text>
+        <Text
+          numberOfLines={1}
+          className="mt-4 font-display text-[34px] leading-[0.95] tracking-[-0.06em] text-ink"
+        >
           Tareas de hoy.
         </Text>
 
         <View className="mt-2 flex-row flex-wrap items-center gap-2">
           <Text className="font-body text-[14px] leading-6 text-black/60">
-            <Text className="font-bodyMedium text-ink">{doneTasks}</Text> de {totalTasks} tareas completadas
+            <Text className="font-bodyMedium text-ink">{doneTasks}</Text> de{" "}
+            {totalTasks} tareas completadas
           </Text>
           <View className="rounded-full bg-black/[0.05] px-2 py-1">
-            <Text className="font-bodyMedium text-[10px] uppercase tracking-[0.14em] text-black/55">{blocks.length} bloques</Text>
+            <Text className="font-bodyMedium text-[10px] uppercase tracking-[0.14em] text-black/55">
+              {blocks.length} bloques
+            </Text>
           </View>
         </View>
       </View>
@@ -299,8 +378,13 @@ export default function TasksScreen() {
               <Pressable
                 key={item.key}
                 onPress={() => setFilter(item.key)}
-                className={`rounded-full px-4 py-2 ${active ? "bg-ink" : "border border-black/10 bg-white"}`}>
-                <Text className={`font-bodyMedium text-[12px] ${active ? "text-white" : "text-ink"}`}>{item.label}</Text>
+                className={`rounded-full px-4 py-2 ${active ? "bg-ink" : "border border-black/10 bg-white"}`}
+              >
+                <Text
+                  className={`font-bodyMedium text-[12px] ${active ? "text-white" : "text-ink"}`}
+                >
+                  {item.label}
+                </Text>
               </Pressable>
             );
           })}
@@ -309,8 +393,12 @@ export default function TasksScreen() {
         <View className="mt-6 gap-3">
           {!loading && visibleBlocks.length === 0 ? (
             <View className="rounded-[24px] border border-black/10 bg-white p-5">
-              <Text className="font-bodyMedium text-[17px] text-ink">{emptyMessage.title}</Text>
-              <Text className="mt-2 font-body text-[15px] leading-7 text-black/55">{emptyMessage.body}</Text>
+              <Text className="font-bodyMedium text-[17px] text-ink">
+                {emptyMessage.title}
+              </Text>
+              <Text className="mt-2 font-body text-[15px] leading-7 text-black/55">
+                {emptyMessage.body}
+              </Text>
             </View>
           ) : null}
 
@@ -331,34 +419,48 @@ export default function TasksScreen() {
                   shadowRadius: 10,
                   shadowOffset: { width: 0, height: 4 },
                   elevation: 1,
-                }}>
+                }}
+              >
                 <Pressable
                   onPress={() => toggleBlock(block.id)}
                   accessibilityRole="button"
                   accessibilityState={{ expanded }}
-                  className="px-4 py-4 active:opacity-90">
+                  className="px-4 py-4 active:opacity-90"
+                >
                   <View className="flex-row items-start justify-between gap-3">
                     <View className="flex-1 flex-row items-start gap-3">
-                      <View className="mt-1.5 h-3 w-3 rounded-full" style={{ backgroundColor: meta.bg }} />
+                      <View
+                        className="mt-1.5 h-3 w-3 rounded-full"
+                        style={{ backgroundColor: meta.bg }}
+                      />
                       <View className="min-w-0 flex-1">
                         <View className="flex-row flex-wrap items-center gap-2">
-                          <Text className="font-bodyMedium text-[15px] text-ink">{block.name}</Text>
+                          <Text className="font-bodyMedium text-[15px] text-ink">
+                            {block.name}
+                          </Text>
                           {block.isFixed ? (
                             <View className="rounded-full bg-black/[0.05] px-2 py-1">
-                              <Text className="font-bodyMedium text-[10px] uppercase tracking-[0.14em] text-black/55">Fijo</Text>
+                              <Text className="font-bodyMedium text-[10px] uppercase tracking-[0.14em] text-black/55">
+                                Fijo
+                              </Text>
                             </View>
                           ) : null}
                           {state === "now" ? (
                             <View className="ml-1 rounded-full bg-lime-300 px-3 py-1.5">
-                              <Text className="font-bodyMedium text-[10px] uppercase tracking-[0.14em] text-ink">Ahora</Text>
+                              <Text className="font-bodyMedium text-[10px] uppercase tracking-[0.14em] text-ink">
+                                Ahora
+                              </Text>
                             </View>
                           ) : null}
                         </View>
                         <Text className="mt-1 font-mono text-[12px] text-black/45">
-                          {block.start}–{block.end} · {fmtDuration(block.start, block.end)}
+                          {block.start}–{block.end} ·{" "}
+                          {fmtDuration(block.start, block.end)}
                         </Text>
                         <Text className="mt-1 font-body text-[13px] text-black/45">
-                          {total ? `${pending} pendientes de ${total}` : "Sin tareas"}
+                          {total
+                            ? `${pending} pendientes de ${total}`
+                            : "Sin tareas"}
                         </Text>
                       </View>
                     </View>
@@ -371,10 +473,15 @@ export default function TasksScreen() {
                         }}
                         accessibilityRole="button"
                         accessibilityLabel={`Crear tarea en ${block.name}`}
-                        className="h-8 w-8 items-center justify-center rounded-full bg-black/[0.05] active:opacity-80">
-                        <Text className="font-bodyMedium text-[18px] leading-none text-ink">+</Text>
+                        className="h-8 w-8 items-center justify-center rounded-full bg-black/[0.05] active:opacity-80"
+                      >
+                        <Text className="font-bodyMedium text-[18px] leading-none text-ink">
+                          +
+                        </Text>
                       </Pressable>
-                      <Text className="font-mono text-[16px] text-black/35">{expanded ? "⌄" : "›"}</Text>
+                      <Text className="font-mono text-[16px] text-black/35">
+                        {expanded ? "⌄" : "›"}
+                      </Text>
                     </View>
                   </View>
                 </Pressable>
@@ -385,21 +492,33 @@ export default function TasksScreen() {
                       block.visibleTasks.map((task, index) => (
                         <View
                           key={task.id}
-                          className={`min-h-[56px] flex-row items-start gap-3 px-4 py-3 ${index === 0 ? "" : "border-t border-black/10"}`}>
-                          <TaskCheck checked={task.done} onPress={() => toggleTask(block.id, task.id)} />
+                          className={`min-h-[56px] flex-row items-start gap-3 px-4 py-3 ${index === 0 ? "" : "border-t border-black/10"}`}
+                        >
+                          <TaskCheck
+                            checked={task.done}
+                            onPress={() => toggleTask(block.id, task.id)}
+                          />
                           <PriorityDot priority={task.priority} />
 
                           <View className="min-w-0 flex-1">
                             <Text
-                              className={`font-body text-[15px] leading-6 text-ink ${task.done ? "opacity-50 line-through" : ""}`}>
+                              className={`font-body text-[15px] leading-6 text-ink ${task.done ? "opacity-50 line-through" : ""}`}
+                            >
                               {task.text}
                             </Text>
                           </View>
 
                           <View
                             className="rounded-full px-2 py-1"
-                            style={{ backgroundColor: priorityBg(task.priority), opacity: task.done ? 0.55 : 1 }}>
-                            <Text className="font-bodyMedium text-[10px] uppercase tracking-[0.14em]" style={{ color: priorityText(task.priority) }}>
+                            style={{
+                              backgroundColor: priorityBg(task.priority),
+                              opacity: task.done ? 0.55 : 1,
+                            }}
+                          >
+                            <Text
+                              className="font-bodyMedium text-[10px] uppercase tracking-[0.14em]"
+                              style={{ color: priorityText(task.priority) }}
+                            >
                               {priorityLabel(task.priority)}
                             </Text>
                           </View>
@@ -408,7 +527,11 @@ export default function TasksScreen() {
                     ) : (
                       <View className="px-4 py-4">
                         <Text className="font-body text-[14px] text-black/45">
-                          {filter === "todas" ? (block.isFixed ? "Bloque fijo, sin tareas." : "Este bloque está libre.") : "Sin tareas para este filtro."}
+                          {filter === "todas"
+                            ? block.isFixed
+                              ? "Bloque fijo, sin tareas."
+                              : "Este bloque está libre."
+                            : "Sin tareas para este filtro."}
                         </Text>
                       </View>
                     )}
@@ -440,7 +563,9 @@ export default function TasksScreen() {
         block.id === blockId
           ? {
               ...block,
-              tasks: block.tasks.map((task) => (task.id === taskId ? { ...task, done: !task.done } : task)),
+              tasks: block.tasks.map((task) =>
+                task.id === taskId ? { ...task, done: !task.done } : task,
+              ),
             }
           : block,
       ),
@@ -450,7 +575,10 @@ export default function TasksScreen() {
     const task = block?.tasks.find((item) => item.id === taskId);
     if (!task) return;
 
-    const { error } = await supabase.from("tasks").update({ completed: !task.done }).eq("id", taskId);
+    const { error } = await supabase
+      .from("tasks")
+      .update({ completed: !task.done })
+      .eq("id", taskId);
     if (error) console.error(error.message);
   }
 }
@@ -491,15 +619,25 @@ function getTodayCode() {
   return ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][new Date().getDay()];
 }
 
-function shouldShowBlock(repeatRule: string | null, appliesTo: string[] | null, todayCode: string) {
+function shouldShowBlock(
+  repeatRule: string | null,
+  appliesTo: string[] | null,
+  todayCode: string,
+) {
   if (repeatRule === "daily") return true;
-  if (repeatRule === "weekdays") return ["mon", "tue", "wed", "thu", "fri"].includes(todayCode);
-  if (Array.isArray(appliesTo) && appliesTo.length > 0) return appliesTo.includes(todayCode);
+  if (repeatRule === "weekdays")
+    return ["mon", "tue", "wed", "thu", "fri"].includes(todayCode);
+  if (Array.isArray(appliesTo) && appliesTo.length > 0)
+    return appliesTo.includes(todayCode);
   return true;
 }
 
 function pickDayConfig(configs: DayConfigRow[], todayCode: string) {
-  return configs.find((config) => config.applies_to?.includes(todayCode)) ?? configs.find((config) => config.is_default) ?? null;
+  return (
+    configs.find((config) => config.applies_to?.includes(todayCode)) ??
+    configs.find((config) => config.is_default) ??
+    null
+  );
 }
 
 function addMinutes(start: string, minutes: number) {
@@ -512,7 +650,28 @@ function addMinutes(start: string, minutes: number) {
 }
 
 function formatTodayLabel(date: Date) {
-  const days = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-  const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  const days = [
+    "Domingo",
+    "Lunes",
+    "Martes",
+    "Miércoles",
+    "Jueves",
+    "Viernes",
+    "Sábado",
+  ];
+  const months = [
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre",
+  ];
   return `${days[date.getDay()]} ${date.getDate()} de ${months[date.getMonth()]}`.toUpperCase();
 }
