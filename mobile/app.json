@@ -3,11 +3,16 @@
     "name": "mobile",
     "slug": "mobile",
     "version": "1.0.0",
+    "icon": "./assets/Logo.png",
     "orientation": "portrait",
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "android": {
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/Logo.png",
+        "backgroundColor": "#FFFFFF"
+      }
     },
     "web": {
       "web": {
