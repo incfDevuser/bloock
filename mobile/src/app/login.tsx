@@ -15,6 +15,7 @@ export default function LoginScreen() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+
     if (hydrated && completed) {
       router.replace("/home");
     }

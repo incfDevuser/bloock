@@ -32,6 +32,7 @@ export default function OnboardingStepScreen() {
   const currentStep = isStep(step) ? step : null;
 
   useEffect(() => {
+
     if (hydrated && completed) {
       router.replace("/home");
     }
