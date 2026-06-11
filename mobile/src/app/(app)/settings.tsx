@@ -82,6 +82,8 @@ export default function SettingsScreen() {
   const [savingConfig, setSavingConfig] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
   const [draftConfig, setDraftConfig] = useState<DayConfigRow | null>(null);
+  const [deleteAccountVisible, setDeleteAccountVisible] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -169,6 +171,56 @@ export default function SettingsScreen() {
     await resetOnboarding();
     await supabase.auth.signOut();
     router.replace("/");
+  };
+
+  const promptDeleteAccount = () => {
+    setDeleteAccountVisible(true);
+  };
+
+  const cancelDeleteAccount = () => {
+    if (deletingAccount) return;
+    setDeleteAccountVisible(false);
+  };
+
+  const confirmDeleteAccount = async () => {
+    if (deletingAccount) return;
+
+    setDeletingAccount(true);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (!accessToken) {
+        throw new Error("No active session");
+      }
+
+      const { error } = await supabase.functions.invoke("DeleteAccount", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      await cancelBlockNotifications().catch((cancelError) => {
+        console.error(cancelError);
+      });
+      await supabase.auth.signOut();
+      await resetOnboarding();
+      router.replace("/");
+    } catch (error) {
+      console.error(error);
+      Alert.alert(
+        "No pudimos eliminar tu cuenta",
+        "Probá de nuevo en un momento.",
+      );
+    } finally {
+      setDeletingAccount(false);
+      setDeleteAccountVisible(false);
+    }
   };
 
   const promptSignOut = () => {
@@ -506,6 +558,37 @@ export default function SettingsScreen() {
             </View>
           </Pressable>
         </View>
+
+        <View className="mt-6 gap-3 px-5">
+          <Text className="font-bodyMedium text-[18px] text-ink">
+            Zona de peligro
+          </Text>
+
+          <Pressable
+            onPress={promptDeleteAccount}
+            accessibilityRole="button"
+            accessibilityLabel="Eliminar cuenta"
+            className="rounded-[28px] border bg-white px-4 py-4 shadow-sm shadow-black/5 active:opacity-85"
+            style={{ borderColor: "#F2D5D8" }}
+          >
+            <View className="flex-row items-center gap-3">
+              <View className="rounded-full bg-[#FEE2E2] p-2">
+                <Ionicons name="trash-outline" size={18} color="#E11D48" />
+              </View>
+
+              <View className="flex-1">
+                <Text className="font-bodyMedium text-[16px] text-ink">
+                  Eliminar cuenta
+                </Text>
+                <Text className="mt-1 font-body text-[13px] leading-5 text-black/45">
+                  Borra tu perfil, bloques, tareas y todo tu historial.
+                </Text>
+              </View>
+
+              <Ionicons name="chevron-forward" size={16} color="#111111" />
+            </View>
+          </Pressable>
+        </View>
       </ScrollView>
 
       <Modal
@@ -712,6 +795,92 @@ export default function SettingsScreen() {
                   </View>
                 </ScrollView>
               ) : null}
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        transparent
+        statusBarTranslucent
+        visible={deleteAccountVisible}
+        animationType="fade"
+        onRequestClose={cancelDeleteAccount}
+      >
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View className="flex-1 bg-black/55">
+            <Pressable className="absolute inset-0" onPress={cancelDeleteAccount} />
+
+            <View
+              className="mt-auto overflow-hidden rounded-t-[24px] bg-white pt-3"
+              style={{ maxHeight: "86%", paddingBottom: 12 + insets.bottom }}
+            >
+              <View className="items-center pb-3">
+                <View className="h-1 w-10 rounded-full bg-[#D9D9D9]" />
+              </View>
+
+              <View className="flex-row items-start justify-between gap-3 px-5 pb-4">
+                <View className="flex-1">
+                  <Text className="font-display text-[24px] leading-none tracking-[-0.04em] text-ink">
+                    ¿Eliminar tu cuenta?
+                  </Text>
+                  <Text className="mt-2 font-body text-[13px] leading-5 text-black/45">
+                    Esta acción no se puede deshacer. Se borrará tu perfil y todo tu historial.
+                  </Text>
+                </View>
+
+                <Pressable
+                  onPress={cancelDeleteAccount}
+                  className="h-10 w-10 items-center justify-center rounded-full bg-[#F0F0F0] active:opacity-80"
+                  accessibilityRole="button"
+                  accessibilityLabel="Cerrar modal"
+                  disabled={deletingAccount}
+                >
+                  <Ionicons name="close" size={20} color="#111111" />
+                </Pressable>
+              </View>
+
+              <View className="px-5 pb-4">
+                <View
+                  className="rounded-[24px] border bg-[#FFF7F7] px-4 py-4"
+                  style={{ borderColor: "#F2D5D8" }}
+                >
+                  <View className="flex-row items-start gap-3">
+                    <View className="mt-0.5 rounded-full bg-[#FEE2E2] p-2">
+                      <Ionicons name="warning-outline" size={18} color="#E11D48" />
+                    </View>
+                    <Text className="flex-1 font-body text-[14px] leading-6 text-ink">
+                      Se eliminarán tus días, bloques, tareas y notificaciones asociadas.
+                    </Text>
+                  </View>
+                </View>
+
+                <View className="mt-4 flex-row gap-3">
+                  <Pressable
+                    onPress={cancelDeleteAccount}
+                    disabled={deletingAccount}
+                    className="flex-1 items-center rounded-full bg-white px-4 py-4 active:opacity-80"
+                    style={{ borderWidth: 1, borderColor: SOFT_BORDER }}
+                  >
+                    <Text className="font-bodyMedium text-[15px] text-ink">
+                      Cancelar
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => void confirmDeleteAccount()}
+                    disabled={deletingAccount}
+                    className={`flex-1 items-center rounded-full bg-[#E11D48] px-4 py-4 ${deletingAccount ? "opacity-70" : "active:opacity-85"}`}
+                  >
+                    <Text className="font-bodyMedium text-[15px] text-white">
+                      {deletingAccount ? "Eliminando..." : "Eliminar"}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
             </View>
           </View>
         </KeyboardAvoidingView>
