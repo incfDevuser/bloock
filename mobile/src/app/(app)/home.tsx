@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "expo-router";
 
 import { BlockSheet } from "@/components/block-sheet";
 import { PrimaryButton } from "@/components/primary-button";
@@ -215,101 +216,103 @@ export default function HomeScreen() {
 
   const salutation = getSalutation();
 
-  useEffect(() => {
-    let alive = true;
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
 
-    const load = async () => {
-      setLoading(true);
+      const load = async () => {
+        setLoading(true);
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userId = sessionData.session?.user.id;
-      if (alive) setUserId(userId ?? null);
+        const { data: sessionData } = await supabase.auth.getSession();
+        const userId = sessionData.session?.user.id;
+        if (alive) setUserId(userId ?? null);
 
-      if (!userId) {
-        if (alive) setLoading(false);
-        return;
-      }
-
-      const [{ data: userRow }, { data: dayConfigs, error: dayConfigError }] = await Promise.all([
-        supabase.from("users").select("name,email").eq("id", userId).maybeSingle(),
-        supabase
-          .from("day_configs")
-          .select("id,name,wake_time,end_time,applies_to,is_default")
-          .eq("user_id", userId),
-      ]);
-
-      if (dayConfigError) console.error(dayConfigError.message);
-
-      const selectedConfig = pickDayConfig(dayConfigs ?? [], getTodayCode());
-
-      if (!selectedConfig) {
-        if (alive) {
-          setUserName(userRow?.name ?? userRow?.email ?? "");
-          setDayConfig(null);
-          setBlocks([]);
-          setLoading(false);
+        if (!userId) {
+          if (alive) setLoading(false);
+          return;
         }
-        return;
-      }
 
-      const [{ data: blockRows, error: blocksError }, { data: taskRows, error: tasksError }] = await Promise.all([
-        supabase
-          .from("blocks")
-          .select("id,day_config_id,name,type,start_time,duration_minutes,color,is_fixed,is_active,repeat_rule,applies_to")
-          .eq("day_config_id", selectedConfig.id)
-          .eq("is_active", true)
-          .order("start_time", { ascending: true }),
-        supabase
-          .from("tasks")
-          .select("id,block_id,title,priority,completed,date,order")
-          .eq("date", todayIsoDate())
-          .eq("user_id", userId)
-          .order("order", { ascending: true }),
-      ]);
+        const [{ data: userRow }, { data: dayConfigs, error: dayConfigError }] = await Promise.all([
+          supabase.from("users").select("name,email").eq("id", userId).maybeSingle(),
+          supabase
+            .from("day_configs")
+            .select("id,name,wake_time,end_time,applies_to,is_default")
+            .eq("user_id", userId),
+        ]);
 
-      if (blocksError) console.error(blocksError.message);
-      if (tasksError) console.error(tasksError.message);
+        if (dayConfigError) console.error(dayConfigError.message);
 
-      const tasksByBlock = new Map<string, BlockTask[]>();
-      for (const task of taskRows ?? []) {
-        const normalizedPriority = task.priority === "high" ? "high" : task.priority === "medium" ? "med" : "low";
-        const current = tasksByBlock.get(task.block_id) ?? [];
-        current.push({
-          id: task.id,
-          text: task.title,
-          priority: normalizedPriority,
-          done: task.completed,
-        });
-        tasksByBlock.set(task.block_id, current);
-      }
+        const selectedConfig = pickDayConfig(dayConfigs ?? [], getTodayCode());
 
-      const todayCode = getTodayCode();
-      const nextBlocks: LiveBlock[] = (blockRows ?? [])
-        .filter((blockRow) => shouldShowBlock(blockRow.repeat_rule, blockRow.applies_to, todayCode))
-        .map((blockRow) => ({
-          dbId: blockRow.id,
-          id: blockRow.id,
-          type: blockRow.type,
-          name: blockRow.name,
-          start: blockRow.start_time,
-          end: addMinutes(blockRow.start_time, blockRow.duration_minutes),
-          tasks: tasksByBlock.get(blockRow.id) ?? [],
-        }));
+        if (!selectedConfig) {
+          if (alive) {
+            setUserName(userRow?.name ?? userRow?.email ?? "");
+            setDayConfig(null);
+            setBlocks([]);
+            setLoading(false);
+          }
+          return;
+        }
 
-      if (!alive) return;
+        const [{ data: blockRows, error: blocksError }, { data: taskRows, error: tasksError }] = await Promise.all([
+          supabase
+            .from("blocks")
+            .select("id,day_config_id,name,type,start_time,duration_minutes,color,is_fixed,is_active,repeat_rule,applies_to")
+            .eq("day_config_id", selectedConfig.id)
+            .eq("is_active", true)
+            .order("start_time", { ascending: true }),
+          supabase
+            .from("tasks")
+            .select("id,block_id,title,priority,completed,date,order")
+            .eq("date", todayIsoDate())
+            .eq("user_id", userId)
+            .order("order", { ascending: true }),
+        ]);
 
-      setUserName(userRow?.name ?? userRow?.email ?? "");
-      setDayConfig(selectedConfig);
-      setBlocks(nextBlocks);
-      setLoading(false);
-    };
+        if (blocksError) console.error(blocksError.message);
+        if (tasksError) console.error(tasksError.message);
 
-    void load();
+        const tasksByBlock = new Map<string, BlockTask[]>();
+        for (const task of taskRows ?? []) {
+          const normalizedPriority = task.priority === "high" ? "high" : task.priority === "medium" ? "med" : "low";
+          const current = tasksByBlock.get(task.block_id) ?? [];
+          current.push({
+            id: task.id,
+            text: task.title,
+            priority: normalizedPriority,
+            done: task.completed,
+          });
+          tasksByBlock.set(task.block_id, current);
+        }
 
-    return () => {
-      alive = false;
-    };
-  }, []);
+        const todayCode = getTodayCode();
+        const nextBlocks: LiveBlock[] = (blockRows ?? [])
+          .filter((blockRow) => shouldShowBlock(blockRow.repeat_rule, blockRow.applies_to, todayCode))
+          .map((blockRow) => ({
+            dbId: blockRow.id,
+            id: blockRow.id,
+            type: blockRow.type,
+            name: blockRow.name,
+            start: blockRow.start_time,
+            end: addMinutes(blockRow.start_time, blockRow.duration_minutes),
+            tasks: tasksByBlock.get(blockRow.id) ?? [],
+          }));
+
+        if (!alive) return;
+
+        setUserName(userRow?.name ?? userRow?.email ?? "");
+        setDayConfig(selectedConfig);
+        setBlocks(nextBlocks);
+        setLoading(false);
+      };
+
+      void load();
+
+      return () => {
+        alive = false;
+      };
+    }, []),
+  );
 
   useEffect(() => {
     if (!scrollRef.current) return;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   KeyboardAvoidingView,
@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 
 import { PriorityDot } from "@/components/priority-dot";
 import { TaskCheck } from "@/components/task-check";
@@ -107,6 +108,7 @@ function BlockSheetBody({
   onAddTask: (blockId: string, text: string) => Promise<void> | void;
   onDeleteBlock: (blockId: string) => void;
 }) {
+  const router = useRouter();
   const [draft, setDraft] = useState("");
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -114,15 +116,27 @@ function BlockSheetBody({
   const [editType, setEditType] = useState<keyof typeof TOKENS.blocks>(block.type);
   const [editStart, setEditStart] = useState(block.start);
   const [editDuration, setEditDuration] = useState(fmtDuration(block.start, block.end));
+  const submittingTaskRef = useRef(false);
+  const focusNavigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const completion = useMemo(() => {
     if (!block.tasks.length) return 0;
     return block.tasks.filter((task) => task.done).length / block.tasks.length;
   }, [block]);
+  const doneTasks = block.tasks.filter((task) => task.done).length;
 
   const submitTask = async () => {
+    if (submittingTaskRef.current) return;
+
     const value = draft.trim();
     if (value) {
-      await Promise.resolve(onAddTask(block.id, value));
+      submittingTaskRef.current = true;
+
+      try {
+        await Promise.resolve(onAddTask(block.id, value));
+      } finally {
+        submittingTaskRef.current = false;
+      }
     }
     setDraft("");
     setAdding(false);
@@ -142,6 +156,14 @@ function BlockSheetBody({
     setEditing(false);
   };
 
+  useEffect(() => {
+    return () => {
+      if (focusNavigateTimerRef.current) {
+        clearTimeout(focusNavigateTimerRef.current);
+      }
+    };
+  }, []);
+
   return (
     <>
       <View className="items-center pb-3">
@@ -149,10 +171,22 @@ function BlockSheetBody({
       </View>
 
       <View className="px-5 pb-4">
-        <View className="mb-2 flex-row items-center gap-2">
-          <View className="h-2 w-2 rounded-full" style={{ backgroundColor: meta.bg }} />
-          <Text className="font-mono text-[12px] uppercase tracking-[0.2em] text-black/45">{meta.label}</Text>
+        <View className="mb-2 flex-row items-center justify-between gap-3">
+          <View className="flex-row items-center gap-2">
+            <View className="h-2 w-2 rounded-full" style={{ backgroundColor: meta.bg }} />
+            <Text className="font-mono text-[12px] uppercase tracking-[0.2em] text-black/45">{meta.label}</Text>
+          </View>
+
+          <View className="flex-row items-center gap-2">
+            <Pressable onPress={() => setEditing((current) => !current)} className="rounded-full bg-black/[0.05] px-3 py-2 active:opacity-80">
+              <Text className="font-body text-[13px] text-black/45">{editing ? "Ver" : "Editar"}</Text>
+            </Pressable>
+            <Pressable onPress={onClose} className="rounded-full bg-black/[0.05] px-3 py-2 active:opacity-80">
+              <Text className="font-body text-[13px] text-black/45">×</Text>
+            </Pressable>
+          </View>
         </View>
+
         <View className="flex-row items-start justify-between gap-3">
           <View className="flex-1 pr-2">
             {editing ? (
@@ -223,18 +257,12 @@ function BlockSheetBody({
             )}
           </View>
 
-          <View className="gap-2">
-            <Pressable onPress={() => setEditing((current) => !current)} className="rounded-full bg-black/[0.05] px-3 py-2 active:opacity-80">
-              <Text className="font-body text-[13px] text-black/45">{editing ? "Ver" : "Editar"}</Text>
-            </Pressable>
-            <Pressable onPress={onClose} className="rounded-full bg-black/[0.05] px-3 py-2 active:opacity-80">
-              <Text className="font-body text-[13px] text-black/45">Cerrar</Text>
-            </Pressable>
-          </View>
+          <View className="gap-2" />
         </View>
+
         {block.tasks.length ? (
           <Text className="mt-2 font-body text-[13px] text-black/45">
-            {block.tasks.filter((task) => task.done).length}/{block.tasks.length} tareas
+            {doneTasks}/{block.tasks.length} tareas
           </Text>
         ) : null}
         {block.tasks.length ? (
@@ -245,6 +273,17 @@ function BlockSheetBody({
       </View>
 
       <View className="px-5 pb-3">
+        <Pressable
+          onPress={() => {
+            onClose();
+            focusNavigateTimerRef.current = setTimeout(() => {
+              router.push(`/focus/${block.id}`);
+            }, 240);
+          }}
+          className="mb-3 flex-row items-center justify-center gap-2 rounded-[14px] bg-lime-300 py-4 active:opacity-90">
+          <Text className="font-bodyMedium text-[15px] text-ink">Activar modo foco</Text>
+        </Pressable>
+
         {adding ? (
           <View className="flex-row items-center gap-3 rounded-[12px] bg-black/[0.03] px-4 py-3">
             <View className="h-5 w-5 rounded-full border border-black/20 bg-white" />
@@ -277,11 +316,7 @@ function BlockSheetBody({
         )}
       </View>
 
-      <ScrollView
-        className="px-2"
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerClassName="pb-6">
+      <ScrollView className="px-2" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerClassName="pb-6">
         {block.tasks.length === 0 && !adding ? (
           <View className="px-4 py-10">
             <Text className="text-center font-bodyMedium text-[16px] text-ink">Este bloque está libre.</Text>
@@ -293,13 +328,11 @@ function BlockSheetBody({
           <TaskRow key={task.id} task={task} onToggle={() => void onToggleTask(block.id, task.id)} />
         ))}
 
-        <Pressable
-          onPress={() => onDeleteBlock(block.id)}
-          className="mx-3 mt-4 items-center rounded-[12px] py-4"
-          style={{ backgroundColor: "rgba(245, 82, 82, 0.12)" }}>
+        <Pressable onPress={() => onDeleteBlock(block.id)} className="mx-3 mt-4 items-center rounded-[12px] py-4" style={{ backgroundColor: "rgba(245, 82, 82, 0.12)" }}>
           <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 14, color: "#E53935" }}>Eliminar bloque</Text>
         </Pressable>
       </ScrollView>
+
     </>
   );
 }

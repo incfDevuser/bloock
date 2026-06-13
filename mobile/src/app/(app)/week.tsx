@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BlockSheet } from "@/components/block-sheet";
@@ -68,10 +68,12 @@ const WEEK_DAY_META: Record<WeekDayCode, { shortLabel: string }> = {
 export default function WeekScreen() {
   const verticalRef = useRef<ScrollView | null>(null);
   const horizontalRef = useRef<ScrollView | null>(null);
+  const mountedRef = useRef(true);
 
   const [blocks, setBlocks] = useState<LiveBlock[]>([]);
   const [dayConfig, setDayConfig] = useState<DayConfigRow | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedBlock, setSelectedBlock] = useState<DemoBlock | null>(null);
 
   const weekDays = useMemo(() => buildWeekDays(new Date()), []);
@@ -102,17 +104,16 @@ export default function WeekScreen() {
   );
   const weekRangeLabel = useMemo(() => formatWeekRange(weekDays[0].date, weekDays[6].date), [weekDays]);
 
-  useEffect(() => {
-    let alive = true;
-
-    const load = async () => {
-      setLoading(true);
-
+  const loadWeekData = async () => {
+    try {
       const { data: sessionData } = await supabase.auth.getSession();
       const userId = sessionData.session?.user.id;
 
       if (!userId) {
-        if (alive) setLoading(false);
+        if (mountedRef.current) {
+          setDayConfig(null);
+          setBlocks([]);
+        }
         return;
       }
 
@@ -126,10 +127,9 @@ export default function WeekScreen() {
       const selectedConfig = pickDayConfig(dayConfigs ?? []);
 
       if (!selectedConfig) {
-        if (alive) {
+        if (mountedRef.current) {
           setDayConfig(null);
           setBlocks([]);
-          setLoading(false);
         }
         return;
       }
@@ -157,17 +157,22 @@ export default function WeekScreen() {
         appliesTo: blockRow.applies_to,
       }));
 
-      if (!alive) return;
+      if (!mountedRef.current) return;
 
       setDayConfig(selectedConfig);
       setBlocks(nextBlocks);
-      setLoading(false);
-    };
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
+  };
 
-    void load();
+  useEffect(() => {
+    mountedRef.current = true;
+
+    void loadWeekData();
 
     return () => {
-      alive = false;
+      mountedRef.current = false;
     };
   }, []);
 
@@ -265,6 +270,15 @@ export default function WeekScreen() {
     if (error) console.error(error.message);
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadWeekData(false);
+    } finally {
+      if (mountedRef.current) setRefreshing(false);
+    }
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
       {loading ? (
@@ -290,7 +304,13 @@ export default function WeekScreen() {
           </Text>
         </View>
 
-        <ScrollView ref={verticalRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }} style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+        <ScrollView
+          ref={verticalRef}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 120 }}
+          style={{ flex: 1, backgroundColor: "#FFFFFF" }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={TOKENS.primaryDark} colors={[TOKENS.primaryDark]} />}
+        >
           <ScrollView
             ref={horizontalRef}
             horizontal
