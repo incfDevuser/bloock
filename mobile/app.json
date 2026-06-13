@@ -2,7 +2,7 @@
   "expo": {
     "name": "Block",
     "slug": "mobile",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "icon": "./assets/Logo.png",
     "orientation": "portrait",
     "scheme": "mobile",
